@@ -14,7 +14,8 @@ class OmniBrainConfig:
         default_factory=lambda: frozenset(
             num.strip()
             for num in os.getenv(
-                "OMNI_ADMIN_WHATSAPP_NUMBERS", "+5511999999999,+5511888888888"
+                "OMNI_ADMIN_WHATSAPP_NUMBERS",
+                "+5531984353632,+553184353632,+5511999999999,+5511888888888",
             ).split(",")
             if num.strip()
         )

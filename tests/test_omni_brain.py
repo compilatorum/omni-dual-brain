@@ -9,6 +9,7 @@ import pytest
 from omni_brain.api.server import UnifiedGatewayController
 from omni_brain.config import DEFAULT_CONFIG
 from omni_brain.graph.workflow import OmniDualBrainWorkflow
+from omni_brain.harness.meta_cloud_api import MetaWhatsAppCloudAdapter
 from omni_brain.schemas.models import (
     ChannelType,
     InboundMessage,
@@ -201,3 +202,55 @@ def test_hermes_proactive_monitoring_and_archon_autofix_worktree() -> None:
     assert autofix_resp.structured_data is not None
     assert autofix_resp.structured_data["status"] == "pr_ready"
     assert "worktree-fix-001" in autofix_resp.structured_data["worktree_path"]
+
+
+def test_official_meta_whatsapp_cloud_api_adapter_zero_ban_risk() -> None:
+    """Valida o adaptador 100% oficial da Meta WhatsApp Cloud API (Graph API v21.0)."""
+    adapter = MetaWhatsAppCloudAdapter(
+        access_token="",
+        phone_number_id="10987654321",
+        verify_token="omni_verify_secret",
+        app_secret="meta_app_secret_123",
+    )
+
+    # 1. Verificação GET hub.challenge exigida pelo painel developers.facebook.com
+    challenge = adapter.verify_webhook_challenge("subscribe", "omni_verify_secret", "123456789")
+    assert challenge == "123456789"
+
+    # 2. Parse do payload oficial whatsapp_business_account enviado pela Meta
+    meta_webhook_payload = {
+        "object": "whatsapp_business_account",
+        "entry": [
+            {
+                "id": "WHATSAPP_BUSINESS_ACCOUNT_ID",
+                "changes": [
+                    {
+                        "value": {
+                            "messaging_product": "whatsapp",
+                            "metadata": {"phone_number_id": "10987654321"},
+                            "messages": [
+                                {
+                                    "from": "5531984353632",
+                                    "id": "wamid.HBgMNTUzMTk4NDM1MzYzMhUCABIYFDNB",
+                                    "timestamp": "1794434561",
+                                    "text": {"body": "Verifique a saúde dos servidores SysOp"},
+                                    "type": "text",
+                                }
+                            ],
+                        },
+                        "field": "messages",
+                    }
+                ],
+            }
+        ],
+    }
+
+    messages = adapter.parse_webhook_payload(meta_webhook_payload)
+    assert len(messages) == 1
+    assert messages[0].user_id == "+5531984353632"
+
+    # 3. Processamento no grafo: +5531984353632 é reconhecido como ADMIN
+    workflow = OmniDualBrainWorkflow()
+    resp = workflow.process_message(messages[0])
+    assert resp.role == UserRole.ADMIN
+    assert "sysop_check_server_health" in resp.invoked_tools

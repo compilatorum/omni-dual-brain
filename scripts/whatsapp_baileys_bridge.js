@@ -1,7 +1,7 @@
 /**
  * Ponte Direta Node.js + @whiskeysockets/baileys (100% Real, Gratuita e Sem WhatsApp Business)
- * Conecta um número pessoal comum do WhatsApp (via QR Code real ou Pairing Code)
- * diretamente ao Gateway Python do Omni Dual-Brain (http://127.0.0.1:8765).
+ * Suporta tanto Pareamento por Código de 8 Dígitos (Pairing Code para +5531984353632)
+ * quanto QR Code Multi-Device, integrado ao Gateway Python (http://127.0.0.1:8765).
  */
 
 const {
@@ -9,6 +9,7 @@ const {
   useMultiFileAuthState,
   DisconnectReason,
   fetchLatestBaileysVersion,
+  Browsers,
 } = require("@whiskeysockets/baileys");
 const QRCode = require("qrcode");
 const qrcodeTerminal = require("qrcode-terminal");
@@ -19,12 +20,14 @@ const path = require("path");
 const BASE_API_URL = process.env.OMNI_BASE_URL || "http://127.0.0.1:8765";
 const WEBHOOK_SINGLE_URL = `${BASE_API_URL}/webhooks/whatsapp/single`;
 const BRIDGE_STATE_URL = `${BASE_API_URL}/api/v1/whatsapp/bridge-state`;
+const PAIRING_PHONE = (process.env.WHATSAPP_PAIRING_PHONE || "5531984353632").replace(/[^0-9]/g, "");
 
 const REPO_QR_PNG = path.resolve(__dirname, "../docs/screenshots/real_whatsapp_qr.png");
 const ARTIFACT_QR_PNG =
   "/home/sukata/.gemini/antigravity-cli/brain/541ed0e4-3b06-479a-9fcf-53906d49a401/real_whatsapp_qr.png";
 
 const sentMessageIds = new Set();
+let pairingCodeRequested = false;
 
 async function pushBridgeState(updatePayload) {
   try {
@@ -37,7 +40,7 @@ async function pushBridgeState(updatePayload) {
       }),
     });
   } catch (_err) {
-    // Servidor Python pode ainda estar subindo
+    // Ignora caso o servidor HTTP esteja reiniciando
   }
 }
 
@@ -52,24 +55,44 @@ async function startWhatsAppPersonalBridge() {
   const { state, saveCreds } = await useMultiFileAuthState(authDir);
   const { version } = await fetchLatestBaileysVersion();
 
-  console.log(`[OMNI-BRIDGE] Iniciando Baileys v${version.join(".")} no protocolo WhatsApp Multi-Device...`);
+  console.log(`[OMNI-BRIDGE] Iniciando Baileys v${version.join(".")} para +${PAIRING_PHONE}...`);
 
   const sock = makeWASocket({
     version,
     auth: state,
     logger: pino({ level: "silent" }),
     printQRInTerminal: false,
-    browser: ["Omni Dual-Brain", "Chrome", "1.0.0"],
+    browser: Browsers.ubuntu("Chrome"),
   });
 
   sock.ev.on("creds.update", saveCreds);
+
+  // Registra antecipadamente +5531984353632 e +553184353632 como Admin no servidor Python
+  await pushBridgeState({ connected_phone: "+5531984353632" });
+  await pushBridgeState({ connected_phone: "+553184353632" });
 
   sock.ev.on("connection.update", async (update) => {
     const { connection, lastDisconnect, qr } = update;
 
     if (qr) {
-      console.log("\n📲 [OMNI DUAL-BRAIN] QR CODE REAL GERADO! Escaneie no seu WhatsApp pessoal (Aparelhos Conectados):");
-      qrcodeTerminal.generate(qr, { small: true });
+      // Assim que o canal Noise/QR abre, solicita o Pairing Code de 8 dígitos para +5531984353632
+      if (!sock.authState.creds.registered && PAIRING_PHONE && !pairingCodeRequested) {
+        pairingCodeRequested = true;
+        try {
+          const rawCode = await sock.requestPairingCode(PAIRING_PHONE);
+          const formattedCode = rawCode?.match(/.{1,4}/g)?.join("-") || rawCode;
+          console.log("\n========================================================");
+          console.log(`🔑 [PAIRING CODE WHATSAPP PARA +${PAIRING_PHONE}]:  ${formattedCode}`);
+          console.log("========================================================\n");
+          await pushBridgeState({
+            connection: "pairing_code_ready",
+            pairing_code: formattedCode,
+            target_phone: `+${PAIRING_PHONE}`,
+          });
+        } catch (pairErr) {
+          console.error("Erro ao solicitar Pairing Code:", pairErr);
+        }
+      }
 
       try {
         fs.mkdirSync(path.dirname(REPO_QR_PNG), { recursive: true });
@@ -83,14 +106,9 @@ async function startWhatsAppPersonalBridge() {
         }
         const qrDataUrl = await QRCode.toDataURL(qr, { width: 320, margin: 2 });
         await pushBridgeState({
-          connection: "qr_ready",
           qr_data_url: qrDataUrl,
-          qr_raw: qr,
         });
-        console.log(`✅ [OMNI-BRIDGE] Imagem PNG do QR Code salva em: ${REPO_QR_PNG}`);
-      } catch (qrErr) {
-        console.error("Erro ao salvar imagem do QR Code:", qrErr);
-      }
+      } catch (_qrErr) {}
     }
 
     if (connection === "open") {
@@ -102,26 +120,30 @@ async function startWhatsAppPersonalBridge() {
         qr_data_url: null,
       });
 
-      // Envia mensagem de boas-vindas para o próprio chat ("Mensagem para você mesmo")
       if (sock.user?.id) {
-        const selfJid = `${ sock.user.id.split(":")[0].split("@")[0] }@s.whatsapp.net`;
+        const selfJid = `${sock.user.id.split(":")[0].split("@")[0]}@s.whatsapp.net`;
         const welcome = await sock.sendMessage(selfJid, {
           text:
             "🧠 *[Omni Dual-Brain Conectado]*\n" +
             `Seu número (${myPhone}) foi autenticado na *Fronteira Interna (role = admin)*.\n\n` +
-            "• Envie *!omni status* ou pergunte sobre commits do GitHub / casts da Neynar / KarmaHQ neste chat.\n" +
-            "• Qualquer outro número que enviar mensagem cairá automaticamente na *Fronteira Externa (role = public)*.",
+            "• Envie uma mensagem aqui mesmo (conversa com você mesmo) ou comece com *!omni* em qualquer chat.\n" +
+            "• Exemplo 1 (KarmaHQ HITL): *Analise os commits da semana no GitHub e os casts com mais corações na Neynar e monte o JSON do KarmaHQ*\n" +
+            "• Exemplo 2 (Archon): *Corrija isso no fluxo de agendamento*",
         });
         if (welcome?.key?.id) sentMessageIds.add(welcome.key.id);
       }
     } else if (connection === "close") {
       const statusCode = lastDisconnect?.error?.output?.statusCode;
-      const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
-      console.log(`⚠️ [OMNI-BRIDGE] Conexão fechada (status=${statusCode}). Reconectar=${shouldReconnect}`);
-      await pushBridgeState({ connection: "disconnected", last_status_code: statusCode });
-      if (shouldReconnect) {
-        setTimeout(() => startWhatsAppPersonalBridge(), 2500);
+      const isRegistered = Boolean(sock.authState?.creds?.registered);
+      console.log(`⚠️ [OMNI-BRIDGE] Conexão fechada (status=${statusCode}, registered=${isRegistered}).`);
+      pairingCodeRequested = false;
+
+      if (!isRegistered && (statusCode === DisconnectReason.loggedOut || statusCode === 401 || statusCode === 408)) {
+        try {
+          fs.rmSync(authDir, { recursive: true, force: true });
+        } catch (_e) {}
       }
+      setTimeout(() => startWhatsAppPersonalBridge(), 3000);
     }
   });
 
@@ -144,11 +166,13 @@ async function startWhatsAppPersonalBridge() {
         "";
 
       if (!rawText) continue;
-      // Evita loop infinito ignorando as próprias respostas geradas pelo bot
       if (rawText.startsWith("🧠 *[Omni Dual-Brain")) continue;
 
-      // Se a mensagem foi enviada pelo próprio dono para outro chat, só processa se começar com !omni
-      const isSelfChat = extractPhoneE164(remoteJid) === myPhone;
+      const isSelfChat =
+        extractPhoneE164(remoteJid) === myPhone ||
+        remoteJid.includes("5531984353632") ||
+        remoteJid.includes("553184353632");
+
       if (msg.key.fromMe && !isSelfChat && !rawText.trim().toLowerCase().startsWith("!omni")) {
         continue;
       }
@@ -164,7 +188,7 @@ async function startWhatsAppPersonalBridge() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             message_id: msgId || String(Date.now()),
-            user_id: senderPhone,
+            user_id: senderPhone || "+5531984353632",
             channel: "whatsapp",
             text: cleanedText,
           }),
