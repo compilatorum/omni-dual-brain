@@ -1,0 +1,31 @@
+version: "3.9"
+
+# ============================================================================
+# CONEXÃO WHATSAPP GRATUITA (SEM WHATSAPP BUSINESS E SEM CUSTO POR MENSAGEM)
+# Opção A: WAHA (WhatsApp HTTP API - Leve, 1 comando, pareamento via QR Code)
+# Opção B: Evolution API + Redis (Multi-sessão Baileys + persistência)
+# ============================================================================
+
+services:
+  waha-whatsapp-free:
+    image: devlikeapro/waha:latest
+    container_name: omni-waha-qr
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - WHATSAPP_DEFAULT_ENGINE=NOWEB
+      - WHATSAPP_HOOK_URL=http://host.docker.internal:8765/webhooks/whatsapp/single
+      - WHATSAPP_HOOK_EVENTS=message
+    volumes:
+      - waha_sessions:/app/.sessions
+
+  redis-debounce:
+    image: redis:7-alpine
+    container_name: omni-redis-debounce
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
+volumes:
+  waha_sessions:
