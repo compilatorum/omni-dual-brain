@@ -477,6 +477,13 @@
           <td>${item.requirement}</td>
         </tr>
       `).join('');
+
+      if (data.whatsapp_bridge_state && data.whatsapp_bridge_state.qr_data_url) {
+        const qrBox = document.querySelector('.qr-box');
+        if (qrBox) {
+          qrBox.innerHTML = `<img src="${data.whatsapp_bridge_state.qr_data_url}" alt="Real WhatsApp QR Code" style="width:186px;height:186px;border-radius:8px;" />`;
+        }
+      }
     }
 
     async function runWhatsAppBurst() {

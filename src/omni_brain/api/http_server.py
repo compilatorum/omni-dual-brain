@@ -32,6 +32,23 @@ class OmniBrainRuntimeState:
         self.hermes = HermesProactiveWorker(self.controller.workflow)
         self.whatsapp_history: list[dict[str, Any]] = []
         self.emacs_history: list[dict[str, Any]] = []
+        self.whatsapp_bridge_state: dict[str, Any] = {
+            "connection": "starting",
+            "qr_data_url": None,
+            "pairing_code": None,
+            "connected_phone": None,
+            "updated_at": None,
+        }
+
+    def register_dynamic_admin_phone(self, phone_e164: str) -> None:
+        """Adiciona dinamicamente o número pareado no Baileys como Admin (Fronteira Interna)."""
+        current_admins = set(self.controller.workflow.harness.config.admin_whatsapp_numbers)
+        current_admins.add(phone_e164.strip())
+        object.__setattr__(
+            self.controller.workflow.harness.config,
+            "admin_whatsapp_numbers",
+            frozenset(current_admins),
+        )
 
     def get_full_state(self) -> dict[str, Any]:
         wf = self.controller.workflow
@@ -121,7 +138,13 @@ def create_http_server(host: str = "127.0.0.1", port: int = 8765) -> tuple[Threa
                 return
 
             if parsed.path == "/api/v1/state/full":
-                self._send_json(200, runtime.get_full_state())
+                state_data = runtime.get_full_state()
+                state_data["whatsapp_bridge_state"] = runtime.whatsapp_bridge_state
+                self._send_json(200, state_data)
+                return
+
+            if parsed.path == "/api/v1/whatsapp/bridge-state":
+                self._send_json(200, runtime.whatsapp_bridge_state)
                 return
 
             if parsed.path == "/api/v1/metrics/dashboard":
@@ -192,6 +215,14 @@ def create_http_server(host: str = "127.0.0.1", port: int = 8765) -> tuple[Threa
                     }
                 )
                 self._send_json(200, resp_dict)
+                return
+
+            if parsed.path == "/api/v1/whatsapp/bridge-state":
+                runtime.whatsapp_bridge_state.update(body)
+                connected_phone = body.get("connected_phone")
+                if connected_phone:
+                    runtime.register_dynamic_admin_phone(str(connected_phone))
+                self._send_json(200, runtime.whatsapp_bridge_state)
                 return
 
             if parsed.path == "/webhooks/whatsapp/single":
