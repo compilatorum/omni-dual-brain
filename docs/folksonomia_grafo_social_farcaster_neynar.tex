@@ -53,10 +53,11 @@
 }
 
 % Cabeçalho e Rodapé
+\setlength{\headheight}{14pt}
 \pagestyle{fancy}
 \fancyhf{}
-\fancyhead[L]{\small\textcolor{fcPurple}{\textbf{Folksonomia Algébrica do Grafo Social Farcaster (API Neynar v2)}}}
-\fancyhead[R]{\small\textcolor{darkInk}{Omni Dual-Brain Technical Monograph}}
+\fancyhead[L]{\footnotesize\textcolor{fcPurple}{\textbf{Folksonomia Algébrica do Grafo Social Farcaster}}}
+\fancyhead[R]{\footnotesize\textcolor{darkInk}{API Neynar v2 $\bullet$ Omni Dual-Brain}}
 \fancyfoot[C]{\small\thepage}
 \renewcommand{\headrulewidth}{0.5pt}
 
@@ -254,7 +255,7 @@ Por sua vez, a \textbf{Entropia de Diversidade Comunitária de um Canal} $\kappa
 Para que o agente \emph{Omni Dual-Brain} opere sobre a totalidade do grafo social Farcaster, mapeamos nas Tabelas~\ref{tab:neynar_users} a \ref{tab:neynar_actions} todos os subsistemas da API Neynar v2 (\texttt{https://api.neynar.com/v2/farcaster/*}), classificando método HTTP, endpoint, papel folksonômico e formalismo de retorno.
 
 \renewcommand{\arraystretch}{1.22}
-\begin{longtable}{@{}p{1.2cm}p{5.2cm}p{4.3cm}p{5.3cm}@{}}
+\begin{longtable}{@{}p{1.15cm}>{\raggedright\arraybackslash}p{5.65cm}>{\raggedright\arraybackslash}p{4.15cm}>{\raggedright\arraybackslash}p{4.85cm}@{}}
 \caption{Domínio I da API Neynar v2 --- Identidade, Usuários, Grafo Social e Reputação ($\mathcal{U}_{\text{FID}}, \mathcal{W}_{\text{Wallet}}$).}\label{tab:neynar_users}\\
 \toprule
 \rowcolor{fcDeep}
@@ -289,7 +290,7 @@ Para que o agente \emph{Omni Dual-Brain} opere sobre a totalidade do grafo socia
 \texttt{GET} & \texttt{/v2/farcaster/user/active-channels} & Projeção do usuário sobre os canais onde atua ($\mathcal{U}_{\text{FID}} \to \mathcal{K}_{\text{Channel}}$) & $\text{supp}_{\mathcal{K}}(u) = \{k \in \mathcal{K}_{\text{Channel}} \mid \sum_c \mathcal{T}_{u,c,k} > 0\}$ \\
 \end{longtable}
 
-\begin{longtable}{@{}p{1.2cm}p{5.2cm}p{4.3cm}p{5.3cm}@{}}
+\begin{longtable}{@{}p{1.15cm}>{\raggedright\arraybackslash}p{5.65cm}>{\raggedright\arraybackslash}p{4.15cm}>{\raggedright\arraybackslash}p{4.85cm}@{}}
 \caption{Domínio II da API Neynar v2 --- Conteúdo, Árvores Conversacionais e Canais Folksonômicos ($\mathcal{C}_{\text{Cast}}, \mathcal{K}_{\text{Channel}}$).}\label{tab:neynar_casts_channels}\\
 \toprule
 \rowcolor{neynarDark}
@@ -320,7 +321,7 @@ Para que o agente \emph{Omni Dual-Brain} opere sobre a totalidade do grafo socia
 \texttt{GET} & \texttt{/v2/farcaster/channel/member/list} & Listagem de membros verificados com permissão de postagem no canal & $\mathcal{M}_{\text{member}}(\kappa) \subseteq \mathcal{U}_{\text{FID}}$ \\
 \end{longtable}
 
-\begin{longtable}{@{}p{1.2cm}p{5.2cm}p{4.3cm}p{5.3cm}@{}}
+\begin{longtable}{@{}p{1.15cm}>{\raggedright\arraybackslash}p{5.65cm}>{\raggedright\arraybackslash}p{4.15cm}>{\raggedright\arraybackslash}p{4.85cm}@{}}
 \caption{Domínio III da API Neynar v2 --- Feeds, Reações, Signers, Frames v2, Webhooks e On-Chain ($\mathcal{A}_{\text{Action}}, \mathcal{F}_{\text{Frame}}$).}\label{tab:neynar_actions}\\
 \toprule
 \rowcolor{fcDeep}
